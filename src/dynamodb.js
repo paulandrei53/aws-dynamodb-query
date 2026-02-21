@@ -3,7 +3,6 @@ import { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
 
 import { Request } from './request.js';
 import * as util from './util.js';
-import { Raw, config } from './util.js';
 import { SS, BS, N, S, NS, L, add, del } from './types.js';
 
 /**
@@ -19,7 +18,7 @@ import { SS, BS, N, S, NS, L, add, del } from './types.js';
  *
  * @example
  * ```js
- * import DynamoDB from '@awspilot/dynamodb';
+ * import DynamoDB from 'aws-dynamodb-query';
  *
  * const db = new DynamoDB({ region: 'us-east-1' });
  *
@@ -64,14 +63,14 @@ export class DynamoDB {
 		const config = clientOrConfig || {};
 
 		if (config.debug) {
-			console.log('[dynamodb] Debug mode enabled');
+			console.log('[aws-dynamodb-query] Debug mode enabled');
 			this.debug = true;
 		}
 
 		let rawClient;
 
 		if (config.accessKeyId) {
-			if (this.debug) console.log('[dynamodb] Creating client with credentials');
+			if (this.debug) console.log('[aws-dynamodb-query] Creating client with credentials');
 
 			rawClient = new DynamoDBClient({
 				credentials: {
@@ -81,7 +80,7 @@ export class DynamoDB {
 				region: config.region,
 			});
 		} else {
-			if (this.debug) console.log('[dynamodb] Creating client without credentials (using IAM role)');
+			if (this.debug) console.log('[aws-dynamodb-query] No credentials provided, using AWS default credential chain');
 			rawClient = new DynamoDBClient(config.region ? { region: config.region } : {});
 		}
 
@@ -93,34 +92,62 @@ export class DynamoDB {
 	// ---------------------------------------------------------------------------
 
 	/** Create a String Set attribute. */
-	SS(data) { return SS(data); }
-	stringSet(data) { return SS(data); }
+	SS(data) {
+		return SS(data);
+	}
+	stringSet(data) {
+		return SS(data);
+	}
 
 	/** Create a Binary Set attribute. */
-	BS(data) { return BS(data); }
-	binarySet(data) { return BS(data); }
+	BS(data) {
+		return BS(data);
+	}
+	binarySet(data) {
+		return BS(data);
+	}
 
 	/** Create a Number attribute. */
-	N(data) { return N(data); }
-	number(data) { return N(data); }
+	N(data) {
+		return N(data);
+	}
+	number(data) {
+		return N(data);
+	}
 
 	/** Create a String attribute. */
-	S(data) { return S(data); }
-	string(data) { return S(data); }
+	S(data) {
+		return S(data);
+	}
+	string(data) {
+		return S(data);
+	}
 
 	/** Create a Number Set attribute. */
-	NS(data) { return NS(data); }
-	numberSet(data) { return NS(data); }
+	NS(data) {
+		return NS(data);
+	}
+	numberSet(data) {
+		return NS(data);
+	}
 
 	/** Create a List attribute. */
-	L(data) { return L(data); }
-	list(data) { return L(data); }
+	L(data) {
+		return L(data);
+	}
+	list(data) {
+		return L(data);
+	}
 
 	/** Create an ADD update action. */
-	add(data, datatype) { return add(data, datatype); }
+	add(data, datatype) {
+		return add(data, datatype);
+	}
 
 	/** Create a DELETE update action. */
-	del(data, datatype) { return del(data, datatype); }
+	del(data, datatype) {
+		return del(data, datatype);
+	}
 
 	// ---------------------------------------------------------------------------
 	// Schema management
@@ -230,16 +257,16 @@ DynamoDB.INDEXES = 'INDEXES';
  */
 DynamoDB.config = function (options) {
 	if (options.hasOwnProperty('empty_string_replace_as')) {
-		config.empty_string_replace_as = options.empty_string_replace_as;
+		util.config.empty_string_replace_as = options.empty_string_replace_as;
 	}
 	if (options.hasOwnProperty('stringset_parse_as_set')) {
-		config.stringset_parse_as_set = options.stringset_parse_as_set;
+		util.config.stringset_parse_as_set = options.stringset_parse_as_set;
 	}
 	if (options.hasOwnProperty('numberset_parse_as_set')) {
-		config.numberset_parse_as_set = options.numberset_parse_as_set;
+		util.config.numberset_parse_as_set = options.numberset_parse_as_set;
 	}
 	if (options.hasOwnProperty('binaryset_parse_as_set')) {
-		config.binaryset_parse_as_set = options.binaryset_parse_as_set;
+		util.config.binaryset_parse_as_set = options.binaryset_parse_as_set;
 	}
 };
 

@@ -74,7 +74,7 @@ export class Request {
 	async _send(method, params, shouldReset = true) {
 		this.events.beforeRequest?.call(this, method, params);
 
-		if (this.debug) console.info(`[${method}] Params:`, JSON.stringify(params, null, 2));
+		if (this.debug) console.info(`[aws-dynamodb-query][${method}]`, JSON.stringify(params, null, 2));
 
 		const command = this._buildCommand(method, params);
 
@@ -86,7 +86,7 @@ export class Request {
 		try {
 			const data = await this.client.send(command);
 
-			if (this.debug) console.log('[dynamodb] Response:', data);
+			if (this.debug) console.log(`[aws-dynamodb-query][${method}] Response:`, data);
 
 			if (data?.ConsumedCapacity) {
 				this.ConsumedCapacity = data.ConsumedCapacity;
@@ -96,10 +96,9 @@ export class Request {
 			return data;
 		} catch (err) {
 			if (this.debug) {
-				console.error(`[dynamodb] Error in ${method}:`, err.message, params);
-			} else {
-				console.error(`[dynamodb] ${method}:`, JSON.stringify(params), '==>', err?.message || err);
+				console.error(`[aws-dynamodb-query][${method}] Error:`, err.message, params);
 			}
+			this.events.error?.call(this, method, err, params);
 			throw err;
 		}
 	}
@@ -110,11 +109,10 @@ export class Request {
 	 */
 	_buildCommand(method, params) {
 		const commands = {
-			putItem: PutItemCommand,
-			insert: PutItemCommand,
-			updateItem: UpdateItemCommand,
-			deleteItem: DeleteItemCommand,
-			getItem: GetItemCommand,
+			put: PutItemCommand,
+			update: UpdateItemCommand,
+			delete: DeleteItemCommand,
+			get: GetItemCommand,
 			query: QueryCommand,
 			scan: ScanCommand,
 			listTables: ListTablesCommand,
@@ -136,8 +134,18 @@ export class Request {
 			return { Table: this.describeTables[table] };
 		}
 
-		console.warn(`⚠️ dynamodb - missing schema for table "${table}"`);
-		return this._send('describeTable', { TableName: table }, false);
+		if (this.debug) {
+			console.warn(`[aws-dynamodb-query] missing schema for table "${table}", calling DescribeTable API`);
+		}
+
+		const result = await this._send('describeTable', { TableName: table }, false);
+
+		// Cache the result to avoid repeated API calls for the same table
+		if (result?.Table) {
+			this.describeTables[table] = result.Table;
+		}
+
+		return result;
 	}
 
 	/**
@@ -335,11 +343,6 @@ export class Request {
 		return this;
 	}
 
-	/** Alias for filter */
-	having(key) {
-		return this.filter(key);
-	}
-
 	/**
 	 * Set a conditional expression for write operations.
 	 * @param {string} key
@@ -501,17 +504,17 @@ export class Request {
 		};
 
 		if (typeof callback !== 'function') {
-			return this._send('getItem', params).then((data) => {
+			return this._send('get', params).then((data) => {
 				return util.parse({ M: data.Item || {} });
 			});
 		}
 
-		this._send('getItem', params)
+		this._send('get', params)
 			.then((data) => {
 				callback.call(this, null, util.parse({ M: data.Item || {} }), data);
 			})
 			.catch((err) => {
-				callback.call(this, err, false);
+				callback.call(this, err, null);
 			});
 	}
 
@@ -579,7 +582,7 @@ export class Request {
 				callback.call(this, null, data.Items, data);
 			})
 			.catch((err) => {
-				callback.call(this, err, false);
+				callback.call(this, err, null);
 			});
 
 		return this;
@@ -649,7 +652,7 @@ export class Request {
 				callback.call(this, null, data.Items, data);
 			})
 			.catch((err) => {
-				callback.call(this, err, false);
+				callback.call(this, err, null);
 			});
 
 		return this;
@@ -677,19 +680,22 @@ export class Request {
 				ReturnValues: this.ReturnValues,
 			};
 
-			this.localEvents.beforeRequest?.('putItem', params);
+			this.localEvents.beforeRequest?.('put', params);
 
-			const data = await this._send('putItem', params);
+			const data = await this._send('put', params);
 			return { result: util.normalizeItem(data.Attributes || {}), raw: data };
 		};
 
 		if (typeof callback !== 'function') {
-			return doInsert().then(({ result }) => result);
+			return doInsert().then(({ result, raw }) => ({
+				attributes: result,
+				consumedCapacity: raw?.ConsumedCapacity || null,
+			}));
 		}
 
 		doInsert()
 			.then(({ result, raw }) => callback.call(this, null, result, raw))
-			.catch((err) => callback.call(this, err, false));
+			.catch((err) => callback.call(this, err, null));
 	}
 
 	/**
@@ -714,17 +720,20 @@ export class Request {
 				ReturnValues: this.ReturnValues,
 			};
 
-			const data = await this._send('putItem', params);
+			const data = await this._send('put', params);
 			return { result: util.normalizeItem(data.Attributes || {}), raw: data };
 		};
 
 		if (typeof callback !== 'function') {
-			return doReplace().then(({ result }) => result);
+			return doReplace().then(({ result, raw }) => ({
+				attributes: result,
+				consumedCapacity: raw?.ConsumedCapacity || null,
+			}));
 		}
 
 		doReplace()
 			.then(({ result, raw }) => callback.call(this, null, result, raw))
-			.catch((err) => callback.call(this, err, false));
+			.catch((err) => callback.call(this, err, null));
 	}
 
 	/**
@@ -764,19 +773,22 @@ export class Request {
 				ReturnValues: this.ReturnValues,
 			};
 
-			this.localEvents.beforeRequest?.('updateItem', params);
+			this.localEvents.beforeRequest?.('update', params);
 
-			const data = await this._send('updateItem', params);
+			const data = await this._send('update', params);
 			return { result: util.normalizeItem(data.Attributes || {}), raw: data };
 		};
 
 		if (typeof callback !== 'function') {
-			return doUpdate().then(({ result }) => result);
+			return doUpdate().then(({ result, raw }) => ({
+				attributes: result,
+				consumedCapacity: raw?.ConsumedCapacity || null,
+			}));
 		}
 
 		doUpdate()
 			.then(({ result, raw }) => callback.call(this, null, result, raw))
-			.catch((err) => callback.call(this, err, false));
+			.catch((err) => callback.call(this, err, null));
 	}
 
 	/**
@@ -814,17 +826,20 @@ export class Request {
 				ReturnValues: this.ReturnValues,
 			};
 
-			const data = await this._send('updateItem', queryParams);
+			const data = await this._send('update', queryParams);
 			return { result: util.normalizeItem(data.Attributes || {}), raw: data };
 		};
 
 		if (typeof callback !== 'function') {
-			return doUpsert().then(({ result }) => result);
+			return doUpsert().then(({ result, raw }) => ({
+				attributes: result,
+				consumedCapacity: raw?.ConsumedCapacity || null,
+			}));
 		}
 
 		doUpsert()
 			.then(({ result, raw }) => callback.call(this, null, result, raw))
-			.catch((err) => callback.call(this, err, false));
+			.catch((err) => callback.call(this, err, null));
 	}
 
 	/**
@@ -841,17 +856,18 @@ export class Request {
 			ReturnValues: this.ReturnValues,
 		};
 
-		this.localEvents.beforeRequest?.('putItem', params);
+		this.localEvents.beforeRequest?.('put', params);
 
 		if (typeof callback !== 'function') {
-			return this._send('putItem', params).then((data) => {
-				return util.normalizeItem(data.Attributes || {});
-			});
+			return this._send('put', params).then((data) => ({
+				attributes: util.normalizeItem(data.Attributes || {}),
+				consumedCapacity: data?.ConsumedCapacity || null,
+			}));
 		}
 
-		this._send('putItem', params)
+		this._send('put', params)
 			.then((data) => callback.call(this, null, util.normalizeItem(data.Attributes || {}), data))
-			.catch((err) => callback.call(this, err, false));
+			.catch((err) => callback.call(this, err, null));
 	}
 
 	/**
@@ -869,9 +885,10 @@ export class Request {
 				ReturnConsumedCapacity: this.ReturnConsumedCapacity,
 				ReturnValues: this.ReturnValues,
 			};
-			return this._send('deleteItem', params).then((data) => {
-				return util.normalizeItem(data.Attributes || {});
-			});
+			return this._send('delete', params).then((data) => ({
+				attributes: util.normalizeItem(data.Attributes || {}),
+				consumedCapacity: data?.ConsumedCapacity || null,
+			}));
 		}
 
 		// delete(callback) — callback, delete entire item
@@ -883,9 +900,9 @@ export class Request {
 				ReturnValues: this.ReturnValues,
 			};
 
-			this._send('deleteItem', params)
+			this._send('delete', params)
 				.then((data) => attrsOrCallback.call(this, null, util.normalizeItem(data.Attributes || {}), data))
-				.catch((err) => attrsOrCallback.call(this, err, false));
+				.catch((err) => attrsOrCallback.call(this, err, null));
 			return;
 		}
 
@@ -904,27 +921,33 @@ export class Request {
 		};
 
 		if (typeof callback !== 'function') {
-			return this._send('deleteItem', params).then((data) => {
-				return util.normalizeItem(data.Attributes || {});
-			});
+			return this._send('delete', params).then((data) => ({
+				attributes: util.normalizeItem(data.Attributes || {}),
+				consumedCapacity: data?.ConsumedCapacity || null,
+			}));
 		}
 
-		this._send('deleteItem', params)
+		this._send('delete', params)
 			.then((data) => callback.call(this, null, util.normalizeItem(data.Attributes || {}), data))
-			.catch((err) => callback.call(this, err, false));
+			.catch((err) => callback.call(this, err, null));
 	}
 
 	/**
 	 * Describe the current table.
+	 *
+	 * **Promise mode**: Returns `{ table, consumedCapacity }`
+	 *
+	 * **Callback mode**: Calls `callback(err, table, raw)`
+	 *
 	 * @param {Function} [callback]
-	 * @returns {Promise<object>}
+	 * @returns {Promise<{table: object, consumedCapacity: object|null}>}
 	 */
 	describe(callback) {
 		const doDescribe = async () => {
 			const raw = await this._send('describeTable', { TableName: this.tableName }, true);
 
 			if (!raw?.Table) {
-				throw { errorMessage: 'Invalid data: no Table property in describeTable response' };
+				throw new Error('Invalid response: no Table property in describeTable response');
 			}
 
 			const info = { ...raw.Table };
@@ -976,11 +999,14 @@ export class Request {
 		};
 
 		if (typeof callback !== 'function') {
-			return doDescribe().then(({ info }) => info);
+			return doDescribe().then(({ info, raw }) => ({
+				table: info,
+				consumedCapacity: raw?.ConsumedCapacity || null,
+			}));
 		}
 
 		doDescribe()
 			.then(({ info, raw }) => callback.call(this, null, info, raw))
-			.catch((err) => callback.call(this, err));
+			.catch((err) => callback.call(this, err, null));
 	}
 }

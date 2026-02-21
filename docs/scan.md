@@ -44,7 +44,7 @@ All filter operators:
 .filter('attr').null()             // attribute_not_exists()
 ```
 
-`.having()` is an alias for `.filter()`.
+Use `.filter()` for post-scan filters.
 
 ## Scan an Index (GSI)
 

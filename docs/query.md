@@ -79,7 +79,7 @@ All filter operators:
 .filter('attr').null()             // attribute_not_exists()
 ```
 
-`.having()` is an alias for `.filter()`.
+Use with `.where()` for key conditions and `.filter()` for post-query filters.
 
 ## Descending Order
 
