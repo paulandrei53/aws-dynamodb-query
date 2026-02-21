@@ -328,38 +328,6 @@ describe('Request.get', () => {
 		await req.table('test').where('id').eq('123').consistentRead().get();
 		assert.strictEqual(mock.calls[0].input.ConsistentRead, true);
 	});
-
-	it('works with callback mode', (_, done) => {
-		const { req } = createRequest({
-			Item: { id: { S: '123' }, name: { S: 'Alice' } },
-		});
-		req.table('test')
-			.where('id')
-			.eq('123')
-			.get(function (err, item, raw) {
-				assert.strictEqual(err, null);
-				assert.deepStrictEqual(item, { id: '123', name: 'Alice' });
-				assert.ok(raw);
-				done();
-			});
-	});
-
-	it('callback receives null on error, not false', (_, done) => {
-		const mock = {
-			send() {
-				return Promise.reject(new Error('boom'));
-			},
-		};
-		const req = new Request(mock, { describeTables: TEST_SCHEMA });
-		req.table('test')
-			.where('id')
-			.eq('123')
-			.get(function (err, item) {
-				assert.ok(err);
-				assert.strictEqual(item, null);
-				done();
-			});
-	});
 });
 
 // ---------------------------------------------------------------------------
@@ -419,33 +387,6 @@ describe('Request.query', () => {
 		await req.table('test').where('id').eq('123').resume(key).query();
 		assert.deepStrictEqual(mock.calls[0].input.ExclusiveStartKey, key);
 	});
-
-	it('callback returns items array directly', (_, done) => {
-		const { req } = createRequest({
-			Items: [{ id: '1' }],
-			Count: 1,
-			LastEvaluatedKey: { id: { S: 'next' } },
-		});
-		req.table('test')
-			.where('id')
-			.eq('123')
-			.query(function (err, items, raw) {
-				assert.strictEqual(err, null);
-				assert.deepStrictEqual(items, [{ id: '1' }]);
-				assert.deepStrictEqual(this.LastEvaluatedKey, { id: { S: 'next' } });
-				done();
-			});
-	});
-
-	it('callback returns this for chaining', () => {
-		const { req } = createRequest();
-		const result = req
-			.table('test')
-			.where('id')
-			.eq('123')
-			.query(() => {});
-		assert.strictEqual(result, req);
-	});
 });
 
 // ---------------------------------------------------------------------------
@@ -476,21 +417,6 @@ describe('Request.scan', () => {
 		assert.strictEqual(mock.calls[0].input.Limit, 50);
 		assert.strictEqual(mock.calls[0].input.IndexName, 'gsi-1');
 	});
-
-	it('callback mode works', (_, done) => {
-		const { req } = createRequest({ Items: [{ id: 'a' }] });
-		req.table('test').scan(function (err, items) {
-			assert.strictEqual(err, null);
-			assert.deepStrictEqual(items, [{ id: 'a' }]);
-			done();
-		});
-	});
-
-	it('callback returns this for chaining', () => {
-		const { req } = createRequest();
-		const result = req.table('test').scan(() => {});
-		assert.strictEqual(result, req);
-	});
 });
 
 // ---------------------------------------------------------------------------
@@ -520,15 +446,6 @@ describe('Request.insert', () => {
 		const expected = mock.calls[0].input.Expected;
 		assert.ok(expected['id']);
 		assert.strictEqual(expected['id'].Exists, false);
-	});
-
-	it('callback mode works', (_, done) => {
-		const { req } = createRequest();
-		req.table('test').insert({ id: '1', name: 'Alice' }, function (err, result, raw) {
-			assert.strictEqual(err, null);
-			assert.ok(raw);
-			done();
-		});
 	});
 });
 
@@ -574,13 +491,7 @@ describe('Request.update', () => {
 
 	it('throws when missing where key', async () => {
 		const { req } = createRequest();
-		await assert.rejects(
-			() => req.table('test').update({ name: 'Bob' }),
-			(err) => {
-				assert.ok(err.message.includes('ValidationException'));
-				return true;
-			},
-		);
+		await assert.rejects(() => req.table('test').update({ name: 'Bob' }), /ValidationException/);
 	});
 });
 
@@ -670,18 +581,6 @@ describe('Request.delete', () => {
 		const { req, mock } = createRequest();
 		await req.table('test').where('id').eq('1').delete();
 		assert.strictEqual(mock.calls[0].name, 'DeleteItemCommand');
-	});
-
-	it('callback mode works', (_, done) => {
-		const { req } = createRequest();
-		req.table('test')
-			.where('id')
-			.eq('1')
-			.delete(function (err, result, raw) {
-				assert.strictEqual(err, null);
-				assert.ok(raw);
-				done();
-			});
 	});
 
 	it('delete specific attributes sends UpdateItemCommand with DELETE actions', async () => {

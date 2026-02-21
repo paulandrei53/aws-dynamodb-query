@@ -6,10 +6,10 @@ Inserts a new item, or **completely replaces** the existing item if the primary 
 
 ```js
 await db.table('users').insert_or_replace({
-  email: 'test@test.com',
-  name: 'Alice',
-  active: true,
-  created_at: Date.now(),
+	email: 'test@test.com',
+	name: 'Alice',
+	active: true,
+	created_at: Date.now(),
 });
 ```
 
@@ -17,27 +17,15 @@ await db.table('users').insert_or_replace({
 
 ```js
 await db.table('demo').insert_or_replace({
-  partition_key: 'pk_001',
-  email: 'test@test.com',
-  active: true,
-  score: 42,
-  last_login_at: null,
-  avatar: Buffer.from('iVBOR...', 'base64'),
-  tags: ['dev', 'nodejs'],
-  address: { street: '123 Main St', city: 'Toronto' },
-  roles: db.SS(['admin', 'editor']),
-  scores: db.NS([100, 200, 300]),
-});
-```
-
-## With Callback
-
-```js
-db.table('users').insert_or_replace({
-  email: 'test@test.com',
-  name: 'Alice',
-  reset: true,
-}, function (err, data) {
-  console.log(err, data);
+	partition_key: 'pk_001',
+	email: 'test@test.com',
+	active: true,
+	score: 42,
+	last_login_at: null,
+	avatar: Buffer.from('iVBOR...', 'base64'),
+	tags: ['dev', 'nodejs'],
+	address: { street: '123 Main St', city: 'Toronto' },
+	roles: db.SS(['admin', 'editor']),
+	scores: db.NS([100, 200, 300]),
 });
 ```

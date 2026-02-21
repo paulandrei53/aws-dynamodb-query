@@ -2,9 +2,8 @@
 
 A simple and elegant DynamoDB client for Node.js.
 
-[![npm version](https://img.shields.io/npm/v/aws-dynamodb-query.svg)](https://www.npmjs.com/package/aws-dynamodb-query)
-[![npm downloads](https://img.shields.io/npm/dm/aws-dynamodb-query.svg)](https://www.npmjs.com/package/aws-dynamodb-query)
 [![license](https://img.shields.io/npm/l/aws-dynamodb-query.svg)](https://github.com/paulandrei53/aws-dynamodb-query/blob/master/LICENSE)
+[![npm downloads](https://img.shields.io/npm/dm/aws-dynamodb-query.svg)](https://www.npmjs.com/package/aws-dynamodb-query)
 
 ```bash
 npm install aws-dynamodb-query
@@ -14,7 +13,7 @@ npm install aws-dynamodb-query
 
 - **AWS SDK v3** — Built on `@aws-sdk/client-dynamodb` and `@aws-sdk/lib-dynamodb`
 - **Fluent API** — Chainable query builder that reads like English
-- **Promises + Callbacks** — Every operation returns a Promise, or accepts a callback
+- **Async/Await** — Every operation returns a Promise
 - **ESM native** — Modern ES modules, Node 18+
 
 ## Quick Start
@@ -56,24 +55,6 @@ await db.table('users').insert_or_update({ id: '123', login_count: db.add(1) });
 
 // Delete
 await db.table('users').where('id').eq('123').delete();
-```
-
-## Callback API
-
-All operations also accept a callback. Inside the callback, `this` provides `LastEvaluatedKey` and `ConsumedCapacity`:
-
-```js
-db.table('orders')
-	.index('index-customer_id')
-	.where('customer_id')
-	.eq('cus_123')
-	.limit(100)
-	.query(function (err, items, raw) {
-		if (err) return console.error(err);
-		console.log(items);
-		console.log(this.LastEvaluatedKey);
-		console.log(this.ConsumedCapacity);
-	});
 ```
 
 ## Pagination

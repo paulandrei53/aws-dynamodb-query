@@ -65,29 +65,3 @@ do {
 	lastKey = result.lastKey;
 } while (lastKey);
 ```
-
-## Pagination with Callback
-
-```js
-db.table('users')
-	.limit(1000)
-	.scan(function (err, items, raw) {
-		if (err) return console.error(err);
-		console.log(items);
-		console.log(this.LastEvaluatedKey);
-	});
-```
-
-## With Callback
-
-```js
-db.table('users')
-	.select(['name', 'country'])
-	.filter('country')
-	.eq('Canada')
-	.limit(10)
-	.scan(function (err, data) {
-		console.log(err, data);
-		console.log(this.ConsumedCapacity);
-	});
-```

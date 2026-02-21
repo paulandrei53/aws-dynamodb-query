@@ -183,11 +183,11 @@ export class Request {
 	/**
 	 * Register a local event handler.
 	 * @param {string} eventName
-	 * @param {Function} callback
+	 * @param {Function} handler
 	 * @returns {this}
 	 */
-	on(eventName, callback) {
-		this.localEvents[eventName] = callback;
+	on(eventName, handler) {
+		this.localEvents[eventName] = handler;
 		return this;
 	}
 
@@ -481,15 +481,14 @@ export class Request {
 	}
 
 	// ---------------------------------------------------------------------------
-	// CRUD operations (all return Promises, with optional callback support)
+	// CRUD operations
 	// ---------------------------------------------------------------------------
 
 	/**
 	 * Get a single item by key.
-	 * @param {Function} [callback] - `function(err, item, rawResponse)`
-	 * @returns {Promise<object>}
+	 * @returns {Promise<object>} Parsed item, or empty object if not found.
 	 */
-	get(callback) {
+	async get() {
 		if (this.AttributesToGet.length) {
 			this.ProjectionExpression = this.expressionBuilder.buildProjection(this.AttributesToGet);
 		}
@@ -503,33 +502,15 @@ export class Request {
 			ExpressionAttributeNames: this.expressionBuilder.names,
 		};
 
-		if (typeof callback !== 'function') {
-			return this._send('get', params).then((data) => {
-				return util.parse({ M: data.Item || {} });
-			});
-		}
-
-		this._send('get', params)
-			.then((data) => {
-				callback.call(this, null, util.parse({ M: data.Item || {} }), data);
-			})
-			.catch((err) => {
-				callback.call(this, err, null);
-			});
+		const data = await this._send('get', params);
+		return util.parse({ M: data.Item || {} });
 	}
 
 	/**
 	 * Query items using key conditions.
-	 *
-	 * **Promise mode** (no callback): Returns `{ items, lastKey, count, scannedCount, consumedCapacity }`
-	 *
-	 * **Callback mode**: Calls `callback(err, items, raw)` with `this.LastEvaluatedKey` available.
-	 *
-	 * @param {Function} [callback] - `function(err, items, rawResponse)`
-	 * @returns {Promise<{items: object[], lastKey: object|null, count: number, scannedCount: number, consumedCapacity: object}>|this}
+	 * @returns {Promise<{items: object[], lastKey: object|null, count: number, scannedCount: number, consumedCapacity: object|null}>}
 	 *
 	 * @example
-	 * // Promise pagination
 	 * let lastKey = null;
 	 * do {
 	 *   const result = await db.table('orders')
@@ -541,7 +522,7 @@ export class Request {
 	 *   lastKey = result.lastKey;
 	 * } while (lastKey);
 	 */
-	query(callback) {
+	async query() {
 		this._buildExpressions();
 
 		const params = {
@@ -563,43 +544,21 @@ export class Request {
 
 		this.localEvents.beforeRequest?.('query', params);
 
-		if (typeof callback !== 'function') {
-			return this._send('query', params).then((data) => {
-				this.LastEvaluatedKey = data.LastEvaluatedKey ?? null;
-				return {
-					items: data.Items || [],
-					lastKey: data.LastEvaluatedKey || null,
-					count: data.Count ?? 0,
-					scannedCount: data.ScannedCount ?? 0,
-					consumedCapacity: data.ConsumedCapacity || null,
-				};
-			});
-		}
-
-		this._send('query', params)
-			.then((data) => {
-				this.LastEvaluatedKey = data.LastEvaluatedKey ?? null;
-				callback.call(this, null, data.Items, data);
-			})
-			.catch((err) => {
-				callback.call(this, err, null);
-			});
-
-		return this;
+		const data = await this._send('query', params);
+		return {
+			items: data.Items || [],
+			lastKey: data.LastEvaluatedKey || null,
+			count: data.Count ?? 0,
+			scannedCount: data.ScannedCount ?? 0,
+			consumedCapacity: data.ConsumedCapacity || null,
+		};
 	}
 
 	/**
 	 * Scan the entire table or index.
-	 *
-	 * **Promise mode** (no callback): Returns `{ items, lastKey, count, scannedCount, consumedCapacity }`
-	 *
-	 * **Callback mode**: Calls `callback(err, items, raw)` with `this.LastEvaluatedKey` available.
-	 *
-	 * @param {Function} [callback] - `function(err, items, rawResponse)`
-	 * @returns {Promise<{items: object[], lastKey: object|null, count: number, scannedCount: number, consumedCapacity: object}>|this}
+	 * @returns {Promise<{items: object[], lastKey: object|null, count: number, scannedCount: number, consumedCapacity: object|null}>}
 	 *
 	 * @example
-	 * // Promise pagination
 	 * let lastKey = null;
 	 * do {
 	 *   const result = await db.table('users')
@@ -610,7 +569,7 @@ export class Request {
 	 *   lastKey = result.lastKey;
 	 * } while (lastKey);
 	 */
-	scan(callback) {
+	async scan() {
 		if (this.AttributesToGet.length) {
 			this.ProjectionExpression = this.expressionBuilder.buildProjection(this.AttributesToGet);
 		}
@@ -633,283 +592,139 @@ export class Request {
 		if (this.ExclusiveStartKey) params.ExclusiveStartKey = this.ExclusiveStartKey;
 		if (this.IndexName) params.IndexName = this.IndexName;
 
-		if (typeof callback !== 'function') {
-			return this._send('scan', params).then((data) => {
-				this.LastEvaluatedKey = data.LastEvaluatedKey ?? null;
-				return {
-					items: data.Items || [],
-					lastKey: data.LastEvaluatedKey || null,
-					count: data.Count ?? 0,
-					scannedCount: data.ScannedCount ?? 0,
-					consumedCapacity: data.ConsumedCapacity || null,
-				};
-			});
-		}
-
-		this._send('scan', params)
-			.then((data) => {
-				this.LastEvaluatedKey = data.LastEvaluatedKey ?? null;
-				callback.call(this, null, data.Items, data);
-			})
-			.catch((err) => {
-				callback.call(this, err, null);
-			});
-
-		return this;
+		const data = await this._send('scan', params);
+		return {
+			items: data.Items || [],
+			lastKey: data.LastEvaluatedKey || null,
+			count: data.Count ?? 0,
+			scannedCount: data.ScannedCount ?? 0,
+			consumedCapacity: data.ConsumedCapacity || null,
+		};
 	}
 
 	/**
 	 * Insert a new item. Fails if the primary key already exists.
 	 * @param {object} item
-	 * @param {Function} [callback] - `function(err, attributes, rawResponse)`
-	 * @returns {Promise<object>}
+	 * @returns {Promise<{attributes: object, consumedCapacity: object|null}>}
 	 */
-	insert(item, callback) {
-		const doInsert = async () => {
-			const tableInfo = await this._describeTable(this.tableName);
+	async insert(item) {
+		const tableInfo = await this._describeTable(this.tableName);
 
-			for (const schema of tableInfo.Table.KeySchema) {
-				this.if(schema.AttributeName).not_exists();
-			}
-
-			const params = {
-				TableName: this.tableName,
-				Item: util.anormalizeItem(item),
-				Expected: util.buildExpected(this.ifFilter),
-				ReturnConsumedCapacity: this.ReturnConsumedCapacity,
-				ReturnValues: this.ReturnValues,
-			};
-
-			this.localEvents.beforeRequest?.('put', params);
-
-			const data = await this._send('put', params);
-			return { result: util.normalizeItem(data.Attributes || {}), raw: data };
-		};
-
-		if (typeof callback !== 'function') {
-			return doInsert().then(({ result, raw }) => ({
-				attributes: result,
-				consumedCapacity: raw?.ConsumedCapacity || null,
-			}));
+		for (const schema of tableInfo.Table.KeySchema) {
+			this.if(schema.AttributeName).not_exists();
 		}
 
-		doInsert()
-			.then(({ result, raw }) => callback.call(this, null, result, raw))
-			.catch((err) => callback.call(this, err, null));
-	}
-
-	/**
-	 * Replace an existing item. Fails if the primary key does not exist.
-	 * @param {object} item
-	 * @param {Function} [callback]
-	 * @returns {Promise<object>}
-	 */
-	replace(item, callback) {
-		const doReplace = async () => {
-			const tableInfo = await this._describeTable(this.tableName);
-
-			for (const schema of tableInfo.Table.KeySchema) {
-				this.if(schema.AttributeName).eq(item[schema.AttributeName]);
-			}
-
-			const params = {
-				TableName: this.tableName,
-				Item: util.anormalizeItem(item),
-				Expected: util.buildExpected(this.ifFilter),
-				ReturnConsumedCapacity: this.ReturnConsumedCapacity,
-				ReturnValues: this.ReturnValues,
-			};
-
-			const data = await this._send('put', params);
-			return { result: util.normalizeItem(data.Attributes || {}), raw: data };
-		};
-
-		if (typeof callback !== 'function') {
-			return doReplace().then(({ result, raw }) => ({
-				attributes: result,
-				consumedCapacity: raw?.ConsumedCapacity || null,
-			}));
-		}
-
-		doReplace()
-			.then(({ result, raw }) => callback.call(this, null, result, raw))
-			.catch((err) => callback.call(this, err, null));
-	}
-
-	/**
-	 * Update specific attributes on an existing item.
-	 * @param {object} attrs - Key-value pairs to update. `undefined` values delete the attribute.
-	 * @param {Function} [callback]
-	 * @returns {Promise<object>}
-	 */
-	update(attrs, callback) {
-		const doUpdate = async () => {
-			const tableInfo = await this._describeTable(this.tableName);
-
-			for (const schema of tableInfo.Table.KeySchema) {
-				if (!this.whereKey[schema.AttributeName]) {
-					throw { message: `ValidationException: Missing value for "${schema.AttributeName}" in .where()` };
-				}
-				this.if(schema.AttributeName).eq(util.normalizeItem({ key: this.whereKey[schema.AttributeName] }).key);
-			}
-
-			const attributeUpdates = {};
-			for (const [key, value] of Object.entries(attrs)) {
-				if (value === undefined) {
-					attributeUpdates[key] = { Action: 'DELETE' };
-				} else if (value?.getRawData) {
-					attributeUpdates[key] = value.getRawData();
-				} else {
-					attributeUpdates[key] = { Action: 'PUT', Value: util.stringify(value) };
-				}
-			}
-
-			const params = {
-				TableName: this.tableName,
-				Key: this.whereKey,
-				Expected: util.buildExpected(this.ifFilter),
-				AttributeUpdates: attributeUpdates,
-				ReturnConsumedCapacity: this.ReturnConsumedCapacity,
-				ReturnValues: this.ReturnValues,
-			};
-
-			this.localEvents.beforeRequest?.('update', params);
-
-			const data = await this._send('update', params);
-			return { result: util.normalizeItem(data.Attributes || {}), raw: data };
-		};
-
-		if (typeof callback !== 'function') {
-			return doUpdate().then(({ result, raw }) => ({
-				attributes: result,
-				consumedCapacity: raw?.ConsumedCapacity || null,
-			}));
-		}
-
-		doUpdate()
-			.then(({ result, raw }) => callback.call(this, null, result, raw))
-			.catch((err) => callback.call(this, err, null));
-	}
-
-	/**
-	 * Insert or update an item (upsert).
-	 * @param {object} itemParams - Full item including keys.
-	 * @param {Function} [callback]
-	 * @returns {Promise<object>}
-	 */
-	insert_or_update(itemParams, callback) {
-		const doUpsert = async () => {
-			const attrs = util.clone(itemParams);
-			const tableInfo = await this._describeTable(this.tableName);
-
-			for (const schema of tableInfo.Table.KeySchema) {
-				this.where(schema.AttributeName).eq(attrs[schema.AttributeName]);
-				delete attrs[schema.AttributeName];
-			}
-
-			const attributeUpdates = {};
-			for (const [key, value] of Object.entries(attrs)) {
-				if (value === undefined) {
-					attributeUpdates[key] = { Action: 'DELETE' };
-				} else if (value?.getRawData) {
-					attributeUpdates[key] = value.getRawData();
-				} else {
-					attributeUpdates[key] = { Action: 'PUT', Value: util.stringify(value) };
-				}
-			}
-
-			const queryParams = {
-				TableName: this.tableName,
-				Key: this.whereKey,
-				AttributeUpdates: attributeUpdates,
-				ReturnConsumedCapacity: this.ReturnConsumedCapacity,
-				ReturnValues: this.ReturnValues,
-			};
-
-			const data = await this._send('update', queryParams);
-			return { result: util.normalizeItem(data.Attributes || {}), raw: data };
-		};
-
-		if (typeof callback !== 'function') {
-			return doUpsert().then(({ result, raw }) => ({
-				attributes: result,
-				consumedCapacity: raw?.ConsumedCapacity || null,
-			}));
-		}
-
-		doUpsert()
-			.then(({ result, raw }) => callback.call(this, null, result, raw))
-			.catch((err) => callback.call(this, err, null));
-	}
-
-	/**
-	 * Insert or replace an item (overwrite regardless of existence).
-	 * @param {object} item
-	 * @param {Function} [callback]
-	 * @returns {Promise<object>}
-	 */
-	insert_or_replace(item, callback) {
 		const params = {
 			TableName: this.tableName,
 			Item: util.anormalizeItem(item),
+			Expected: util.buildExpected(this.ifFilter),
 			ReturnConsumedCapacity: this.ReturnConsumedCapacity,
 			ReturnValues: this.ReturnValues,
 		};
 
 		this.localEvents.beforeRequest?.('put', params);
 
-		if (typeof callback !== 'function') {
-			return this._send('put', params).then((data) => ({
-				attributes: util.normalizeItem(data.Attributes || {}),
-				consumedCapacity: data?.ConsumedCapacity || null,
-			}));
-		}
-
-		this._send('put', params)
-			.then((data) => callback.call(this, null, util.normalizeItem(data.Attributes || {}), data))
-			.catch((err) => callback.call(this, err, null));
+		const data = await this._send('put', params);
+		return {
+			attributes: util.normalizeItem(data.Attributes || {}),
+			consumedCapacity: data.ConsumedCapacity || null,
+		};
 	}
 
 	/**
-	 * Delete an item or specific attributes.
-	 * @param {string[]|Function} [attrsOrCallback] - Array of attribute names to delete, or callback.
-	 * @param {Function} [callback]
-	 * @returns {Promise<object>}
+	 * Replace an existing item. Fails if the primary key does not exist.
+	 * @param {object} item
+	 * @returns {Promise<{attributes: object, consumedCapacity: object|null}>}
 	 */
-	delete(attrsOrCallback, callback) {
-		// delete()  — promise, delete entire item
-		if (arguments.length === 0) {
-			const params = {
-				TableName: this.tableName,
-				Key: this.whereKey,
-				ReturnConsumedCapacity: this.ReturnConsumedCapacity,
-				ReturnValues: this.ReturnValues,
-			};
-			return this._send('delete', params).then((data) => ({
-				attributes: util.normalizeItem(data.Attributes || {}),
-				consumedCapacity: data?.ConsumedCapacity || null,
-			}));
+	async replace(item) {
+		const tableInfo = await this._describeTable(this.tableName);
+
+		for (const schema of tableInfo.Table.KeySchema) {
+			this.if(schema.AttributeName).eq(item[schema.AttributeName]);
 		}
 
-		// delete(callback) — callback, delete entire item
-		if (typeof attrsOrCallback === 'function') {
-			const params = {
-				TableName: this.tableName,
-				Key: this.whereKey,
-				ReturnConsumedCapacity: this.ReturnConsumedCapacity,
-				ReturnValues: this.ReturnValues,
-			};
+		const params = {
+			TableName: this.tableName,
+			Item: util.anormalizeItem(item),
+			Expected: util.buildExpected(this.ifFilter),
+			ReturnConsumedCapacity: this.ReturnConsumedCapacity,
+			ReturnValues: this.ReturnValues,
+		};
 
-			this._send('delete', params)
-				.then((data) => attrsOrCallback.call(this, null, util.normalizeItem(data.Attributes || {}), data))
-				.catch((err) => attrsOrCallback.call(this, err, null));
-			return;
+		const data = await this._send('put', params);
+		return {
+			attributes: util.normalizeItem(data.Attributes || {}),
+			consumedCapacity: data.ConsumedCapacity || null,
+		};
+	}
+
+	/**
+	 * Update specific attributes on an existing item.
+	 * @param {object} attrs - Key-value pairs to update. `undefined` values delete the attribute.
+	 * @returns {Promise<{attributes: object, consumedCapacity: object|null}>}
+	 */
+	async update(attrs) {
+		const tableInfo = await this._describeTable(this.tableName);
+
+		for (const schema of tableInfo.Table.KeySchema) {
+			if (!this.whereKey[schema.AttributeName]) {
+				throw new Error(`ValidationException: Missing value for "${schema.AttributeName}" in .where()`);
+			}
+			this.if(schema.AttributeName).eq(util.normalizeItem({ key: this.whereKey[schema.AttributeName] }).key);
 		}
 
-		// delete(['attr1', 'attr2'], callback) — delete specific attributes
 		const attributeUpdates = {};
-		for (const attr of attrsOrCallback) {
-			attributeUpdates[attr] = { Action: 'DELETE' };
+		for (const [key, value] of Object.entries(attrs)) {
+			if (value === undefined) {
+				attributeUpdates[key] = { Action: 'DELETE' };
+			} else if (value?.getRawData) {
+				attributeUpdates[key] = value.getRawData();
+			} else {
+				attributeUpdates[key] = { Action: 'PUT', Value: util.stringify(value) };
+			}
+		}
+
+		const params = {
+			TableName: this.tableName,
+			Key: this.whereKey,
+			Expected: util.buildExpected(this.ifFilter),
+			AttributeUpdates: attributeUpdates,
+			ReturnConsumedCapacity: this.ReturnConsumedCapacity,
+			ReturnValues: this.ReturnValues,
+		};
+
+		this.localEvents.beforeRequest?.('update', params);
+
+		const data = await this._send('update', params);
+		return {
+			attributes: util.normalizeItem(data.Attributes || {}),
+			consumedCapacity: data.ConsumedCapacity || null,
+		};
+	}
+
+	/**
+	 * Insert or update an item (upsert).
+	 * @param {object} itemParams - Full item including keys.
+	 * @returns {Promise<{attributes: object, consumedCapacity: object|null}>}
+	 */
+	async insert_or_update(itemParams) {
+		const attrs = util.clone(itemParams);
+		const tableInfo = await this._describeTable(this.tableName);
+
+		for (const schema of tableInfo.Table.KeySchema) {
+			this.where(schema.AttributeName).eq(attrs[schema.AttributeName]);
+			delete attrs[schema.AttributeName];
+		}
+
+		const attributeUpdates = {};
+		for (const [key, value] of Object.entries(attrs)) {
+			if (value === undefined) {
+				attributeUpdates[key] = { Action: 'DELETE' };
+			} else if (value?.getRawData) {
+				attributeUpdates[key] = value.getRawData();
+			} else {
+				attributeUpdates[key] = { Action: 'PUT', Value: util.stringify(value) };
+			}
 		}
 
 		const params = {
@@ -920,93 +735,137 @@ export class Request {
 			ReturnValues: this.ReturnValues,
 		};
 
-		if (typeof callback !== 'function') {
-			return this._send('delete', params).then((data) => ({
+		const data = await this._send('update', params);
+		return {
+			attributes: util.normalizeItem(data.Attributes || {}),
+			consumedCapacity: data.ConsumedCapacity || null,
+		};
+	}
+
+	/**
+	 * Insert or replace an item (overwrite regardless of existence).
+	 * @param {object} item
+	 * @returns {Promise<{attributes: object, consumedCapacity: object|null}>}
+	 */
+	async insert_or_replace(item) {
+		const params = {
+			TableName: this.tableName,
+			Item: util.anormalizeItem(item),
+			ReturnConsumedCapacity: this.ReturnConsumedCapacity,
+			ReturnValues: this.ReturnValues,
+		};
+
+		this.localEvents.beforeRequest?.('put', params);
+
+		const data = await this._send('put', params);
+		return {
+			attributes: util.normalizeItem(data.Attributes || {}),
+			consumedCapacity: data.ConsumedCapacity || null,
+		};
+	}
+
+	/**
+	 * Delete an item by key, or delete specific attributes.
+	 * @param {string[]} [attrs] - Array of attribute names to delete. Omit to delete entire item.
+	 * @returns {Promise<{attributes: object, consumedCapacity: object|null}>}
+	 */
+	async delete(attrs) {
+		// delete(['attr1', 'attr2']) — delete specific attributes
+		if (Array.isArray(attrs)) {
+			const attributeUpdates = {};
+			for (const attr of attrs) {
+				attributeUpdates[attr] = { Action: 'DELETE' };
+			}
+
+			const params = {
+				TableName: this.tableName,
+				Key: this.whereKey,
+				AttributeUpdates: attributeUpdates,
+				ReturnConsumedCapacity: this.ReturnConsumedCapacity,
+				ReturnValues: this.ReturnValues,
+			};
+
+			const data = await this._send('delete', params);
+			return {
 				attributes: util.normalizeItem(data.Attributes || {}),
-				consumedCapacity: data?.ConsumedCapacity || null,
-			}));
+				consumedCapacity: data.ConsumedCapacity || null,
+			};
 		}
 
-		this._send('delete', params)
-			.then((data) => callback.call(this, null, util.normalizeItem(data.Attributes || {}), data))
-			.catch((err) => callback.call(this, err, null));
+		// delete() — delete entire item
+		const params = {
+			TableName: this.tableName,
+			Key: this.whereKey,
+			ReturnConsumedCapacity: this.ReturnConsumedCapacity,
+			ReturnValues: this.ReturnValues,
+		};
+
+		const data = await this._send('delete', params);
+		return {
+			attributes: util.normalizeItem(data.Attributes || {}),
+			consumedCapacity: data.ConsumedCapacity || null,
+		};
 	}
 
 	/**
 	 * Describe the current table.
-	 *
-	 * **Promise mode**: Returns `{ table, consumedCapacity }`
-	 *
-	 * **Callback mode**: Calls `callback(err, table, raw)`
-	 *
-	 * @param {Function} [callback]
 	 * @returns {Promise<{table: object, consumedCapacity: object|null}>}
 	 */
-	describe(callback) {
-		const doDescribe = async () => {
-			const raw = await this._send('describeTable', { TableName: this.tableName }, true);
+	async describe() {
+		const raw = await this._send('describeTable', { TableName: this.tableName }, true);
 
-			if (!raw?.Table) {
-				throw new Error('Invalid response: no Table property in describeTable response');
-			}
-
-			const info = { ...raw.Table };
-
-			const removeKeys = ['TableStatus', 'TableArn', 'TableSizeBytes', 'ItemCount', 'CreationDateTime', 'TableId'];
-			removeKeys.forEach((k) => delete info[k]);
-
-			if (info.ProvisionedThroughput) {
-				delete info.ProvisionedThroughput.NumberOfDecreasesToday;
-				delete info.ProvisionedThroughput.LastIncreaseDateTime;
-				delete info.ProvisionedThroughput.LastDecreaseDateTime;
-			}
-
-			if (info.BillingModeSummary) {
-				info.BillingMode = info.BillingModeSummary.BillingMode;
-				delete info.BillingModeSummary;
-			}
-
-			if (info.GlobalSecondaryIndexes) {
-				for (const gsi of info.GlobalSecondaryIndexes) {
-					delete gsi.IndexSizeBytes;
-					delete gsi.IndexStatus;
-					delete gsi.ItemCount;
-					delete gsi.IndexArn;
-					if (gsi.ProvisionedThroughput) {
-						delete gsi.ProvisionedThroughput.NumberOfDecreasesToday;
-					}
-				}
-			}
-
-			if (info.LocalSecondaryIndexes) {
-				for (const lsi of info.LocalSecondaryIndexes) {
-					delete lsi.IndexSizeBytes;
-					delete lsi.ItemCount;
-					delete lsi.IndexArn;
-				}
-			}
-
-			if (info.BillingMode === 'PAY_PER_REQUEST') {
-				delete info.ProvisionedThroughput;
-				if (info.GlobalSecondaryIndexes) {
-					for (const gsi of info.GlobalSecondaryIndexes) {
-						delete gsi.ProvisionedThroughput;
-					}
-				}
-			}
-
-			return { info, raw };
-		};
-
-		if (typeof callback !== 'function') {
-			return doDescribe().then(({ info, raw }) => ({
-				table: info,
-				consumedCapacity: raw?.ConsumedCapacity || null,
-			}));
+		if (!raw?.Table) {
+			throw new Error('Invalid response: no Table property in describeTable response');
 		}
 
-		doDescribe()
-			.then(({ info, raw }) => callback.call(this, null, info, raw))
-			.catch((err) => callback.call(this, err, null));
+		const info = { ...raw.Table };
+
+		const removeKeys = ['TableStatus', 'TableArn', 'TableSizeBytes', 'ItemCount', 'CreationDateTime', 'TableId'];
+		removeKeys.forEach((k) => delete info[k]);
+
+		if (info.ProvisionedThroughput) {
+			delete info.ProvisionedThroughput.NumberOfDecreasesToday;
+			delete info.ProvisionedThroughput.LastIncreaseDateTime;
+			delete info.ProvisionedThroughput.LastDecreaseDateTime;
+		}
+
+		if (info.BillingModeSummary) {
+			info.BillingMode = info.BillingModeSummary.BillingMode;
+			delete info.BillingModeSummary;
+		}
+
+		if (info.GlobalSecondaryIndexes) {
+			for (const gsi of info.GlobalSecondaryIndexes) {
+				delete gsi.IndexSizeBytes;
+				delete gsi.IndexStatus;
+				delete gsi.ItemCount;
+				delete gsi.IndexArn;
+				if (gsi.ProvisionedThroughput) {
+					delete gsi.ProvisionedThroughput.NumberOfDecreasesToday;
+				}
+			}
+		}
+
+		if (info.LocalSecondaryIndexes) {
+			for (const lsi of info.LocalSecondaryIndexes) {
+				delete lsi.IndexSizeBytes;
+				delete lsi.ItemCount;
+				delete lsi.IndexArn;
+			}
+		}
+
+		if (info.BillingMode === 'PAY_PER_REQUEST') {
+			delete info.ProvisionedThroughput;
+			if (info.GlobalSecondaryIndexes) {
+				for (const gsi of info.GlobalSecondaryIndexes) {
+					delete gsi.ProvisionedThroughput;
+				}
+			}
+		}
+
+		return {
+			table: info,
+			consumedCapacity: raw.ConsumedCapacity || null,
+		};
 	}
 }

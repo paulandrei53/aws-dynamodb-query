@@ -115,20 +115,6 @@ do {
 } while (lastKey);
 ```
 
-## Pagination with Callback
-
-```js
-db.table('orders')
-	.where('customer_id')
-	.eq('cus_123')
-	.limit(100)
-	.query(function (err, items, raw) {
-		if (err) return console.error(err);
-		console.log(items);
-		console.log(this.LastEvaluatedKey);
-	});
-```
-
 ## Full Example
 
 ```js

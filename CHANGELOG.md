@@ -2,14 +2,19 @@
 
 ## 1.0.0
 
+### Features
+
 - Fluent chainable API for DynamoDB (`.table().where().eq().query()`)
 - Built on AWS SDK v3 (`@aws-sdk/client-dynamodb`, `@aws-sdk/lib-dynamodb`)
-- Native Promise support on every operation, with optional callback support
-- Full `async/await` compatibility
-- Callback context provides `this.LastEvaluatedKey` and `this.ConsumedCapacity`
+- Pure async/await — all operations return Promises
+- `query()` and `scan()` return `{ items, lastKey, count, scannedCount, consumedCapacity }`
+- Write operations return `{ attributes, consumedCapacity }`
+- `describe()` returns `{ table, consumedCapacity }`
 - All comparison operators (eq, ne, lt, le, gt, ge, between, begins_with, contains, in, etc.)
 - Type helpers (SS, NS, N, S, L, add, del)
-- Schema pre-registration to avoid describeTable calls
+- Schema pre-registration to avoid DescribeTable API calls
+- DescribeTable results are cached after first call
 - Configurable parsing (empty_string_replace_as, stringset_parse_as_set, etc.)
-- Debug mode
+- Debug mode with `[aws-dynamodb-query]` log prefix
+- Error events via `db.on('error', handler)`
 - ESM native, Node 18+
