@@ -1,51 +1,38 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import DynamoDB, { DynamoDB as NamedDynamoDB, Request, ExpressionBuilder, Raw, util, SS, BS, N, S, NS, L, add, del } from '../src/index.js';
+import DynamoDB from '../src/index.js';
 
 describe('index.js exports', () => {
 	it('default export is DynamoDB', () => {
-		assert.strictEqual(DynamoDB, NamedDynamoDB);
-	});
-
-	it('exports Request', () => {
-		assert.ok(Request);
-		assert.strictEqual(typeof Request, 'function');
-	});
-
-	it('exports ExpressionBuilder', () => {
-		assert.ok(ExpressionBuilder);
-		assert.strictEqual(typeof ExpressionBuilder, 'function');
-	});
-
-	it('exports Raw', () => {
-		assert.ok(Raw);
-		const raw = new Raw({ S: 'test' });
-		assert.deepStrictEqual(raw.data, { S: 'test' });
-	});
-
-	it('exports util', () => {
-		assert.ok(util);
-		assert.strictEqual(typeof util.stringify, 'function');
-		assert.strictEqual(typeof util.parse, 'function');
-		assert.strictEqual(typeof util.clone, 'function');
-		assert.strictEqual(typeof util.anormalizeItem, 'function');
-		assert.strictEqual(typeof util.normalizeItem, 'function');
-	});
-
-	it('exports type helpers', () => {
-		assert.strictEqual(typeof SS, 'function');
-		assert.strictEqual(typeof BS, 'function');
-		assert.strictEqual(typeof N, 'function');
-		assert.strictEqual(typeof S, 'function');
-		assert.strictEqual(typeof NS, 'function');
-		assert.strictEqual(typeof L, 'function');
-		assert.strictEqual(typeof add, 'function');
-		assert.strictEqual(typeof del, 'function');
+		assert.strictEqual(typeof DynamoDB, 'function');
+		assert.strictEqual(DynamoDB.name, 'DynamoDB');
 	});
 
 	it('DynamoDB is constructable', () => {
 		const db = new DynamoDB();
 		assert.ok(db);
 		assert.ok(db.client);
+	});
+
+	it('type helpers are available on instance', () => {
+		const db = new DynamoDB();
+		assert.strictEqual(typeof db.SS, 'function');
+		assert.strictEqual(typeof db.NS, 'function');
+		assert.strictEqual(typeof db.N, 'function');
+		assert.strictEqual(typeof db.S, 'function');
+		assert.strictEqual(typeof db.L, 'function');
+		assert.strictEqual(typeof db.add, 'function');
+		assert.strictEqual(typeof db.del, 'function');
+	});
+
+	it('util is available as static', () => {
+		assert.ok(DynamoDB.util);
+		assert.strictEqual(typeof DynamoDB.util.stringify, 'function');
+		assert.strictEqual(typeof DynamoDB.util.parse, 'function');
+	});
+
+	it('constants are available as static', () => {
+		assert.strictEqual(DynamoDB.ALL_OLD, 'ALL_OLD');
+		assert.strictEqual(DynamoDB.ALL_NEW, 'ALL_NEW');
 	});
 });
