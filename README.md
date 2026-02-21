@@ -141,6 +141,10 @@ DynamoDB.config({
 
 ## [Documentation](https://github.com/paulandrei53/aws-dynamodb-query/tree/master/docs)
 
+## Credits
+
+Based on the original work of [@awspilot/dynamodb](https://github.com/awspilot/dynamodb-oop).
+
 ## License
 
 MIT
