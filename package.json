@@ -1,0 +1,44 @@
+{
+	"name": "aws-dynamodb-query",
+	"version": "1.0.0",
+	"description": "A simple and elegant DynamoDB client for Node.js",
+	"license": "MIT",
+	"main": "src/index.js",
+	"type": "module",
+	"author": "paulandrei53",
+	"engines": {
+		"node": ">=18.0.0"
+	},
+	"files": [
+		"src",
+		"LICENSE",
+		"README.md",
+		"CHANGELOG.md"
+	],
+	"scripts": {
+		"test": "node --test test/**/*.test.js"
+	},
+	"keywords": [
+		"aws",
+		"dynamodb",
+		"nosql",
+		"promise",
+		"aws-sdk-v3",
+		"fluent",
+		"oop",
+		"query-builder"
+	],
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/paulandrei53/aws-dynamodb-query"
+	},
+	"homepage": "https://github.com/paulandrei53/aws-dynamodb-query",
+	"bugs": {
+		"url": "https://github.com/paulandrei53/aws-dynamodb-query/issues"
+	},
+	"dependencies": {
+		"@aws-sdk/client-dynamodb": "^3.0.0",
+		"@aws-sdk/lib-dynamodb": "^3.0.0",
+		"@aws-sdk/util-dynamodb": "^3.0.0"
+	}
+}
