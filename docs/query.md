@@ -5,9 +5,7 @@ Query items by partition key, with optional sort key conditions, filters, and pa
 ## Basic Query
 
 ```js
-const items = await db.table('orders')
-  .where('customer_id').eq('cus_123')
-  .query();
+const items = await db.table('orders').where('customer_id').eq('cus_123').query();
 ```
 
 ## Query with Sort Key Conditions
@@ -36,39 +34,23 @@ For the partition key, the comparison is always `eq()`. For the sort key, you ca
 ## Query an Index
 
 ```js
-const items = await db.table('orders')
-  .index('index-customer_id')
-  .where('customer_id').eq('cus_123')
-  .query();
+const items = await db.table('orders').index('index-customer_id').where('customer_id').eq('cus_123').query();
 ```
 
 ## Select Specific Attributes
 
 ```js
 // Array syntax
-const items = await db.table('orders')
-  .where('customer_id').eq('cus_123')
-  .select(['order_id', 'amount', 'created_at'])
-  .query();
+const items = await db.table('orders').where('customer_id').eq('cus_123').select(['order_id', 'amount', 'created_at']).query();
 
 // Multiple arguments
-const items = await db.table('orders')
-  .where('customer_id').eq('cus_123')
-  .select('order_id', 'amount', 'created_at')
-  .query();
+const items = await db.table('orders').where('customer_id').eq('cus_123').select('order_id', 'amount', 'created_at').query();
 
 // Nested attributes and array indexes
-const items = await db.table('orders')
-  .where('customer_id').eq('cus_123')
-  .select(['order_id', 'shipping.city', 'items[0]'])
-  .query();
+const items = await db.table('orders').where('customer_id').eq('cus_123').select(['order_id', 'shipping.city', 'items[0]']).query();
 
 // All attributes (including non-projected, LSI only)
-const items = await db.table('orders')
-  .index('my-lsi-index')
-  .select(DynamoDB.ALL)
-  .where('customer_id').eq('cus_123')
-  .query();
+const items = await db.table('orders').index('my-lsi-index').select(DynamoDB.ALL).where('customer_id').eq('cus_123').query();
 ```
 
 ## Filters (FilterExpression)
@@ -76,11 +58,7 @@ const items = await db.table('orders')
 Filters are applied **after** the query, on the results. They do not reduce consumed capacity.
 
 ```js
-const items = await db.table('orders')
-  .where('customer_id').eq('cus_123')
-  .filter('status').eq('active')
-  .filter('amount').gt(100)
-  .query();
+const items = await db.table('orders').where('customer_id').eq('cus_123').filter('status').eq('active').filter('amount').gt(100).query();
 ```
 
 All filter operators:
@@ -106,69 +84,71 @@ All filter operators:
 ## Descending Order
 
 ```js
-const items = await db.table('orders')
-  .where('customer_id').eq('cus_123')
-  .descending()
-  .query();
+const items = await db.table('orders').where('customer_id').eq('cus_123').descending().query();
 ```
 
 ## Limit Results
 
 ```js
-const items = await db.table('orders')
-  .where('customer_id').eq('cus_123')
-  .limit(10)
-  .query();
+const items = await db.table('orders').where('customer_id').eq('cus_123').limit(10).query();
 ```
 
 ## Consistent Read
 
 ```js
-const items = await db.table('orders')
-  .where('customer_id').eq('cus_123')
-  .consistentRead()
-  .query();
+const items = await db.table('orders').where('customer_id').eq('cus_123').consistentRead().query();
 ```
 
 ## Pagination
-
-Use the callback form to access `this.LastEvaluatedKey`:
 
 ```js
 let lastKey = null;
 
 do {
-  const items = await new Promise((resolve, reject) => {
-    db.table('orders')
-      .where('customer_id').eq('cus_123')
-      .resume(lastKey)
-      .limit(100)
-      .query(function (err, data) {
-        if (err) return reject(err);
-        lastKey = this.LastEvaluatedKey;
-        resolve(data);
-      });
-  });
+	const result = await db.table('orders').where('customer_id').eq('cus_123').resume(lastKey).limit(100).query();
 
-  console.log(`Got ${items.length} items`);
+	console.log(result.items); // the data
+	console.log(result.count); // number of items returned
+	console.log(result.scannedCount); // number of items scanned
+	console.log(result.consumedCapacity);
+	lastKey = result.lastKey;
 } while (lastKey);
+```
+
+## Pagination with Callback
+
+```js
+db.table('orders')
+	.where('customer_id')
+	.eq('cus_123')
+	.limit(100)
+	.query(function (err, items, raw) {
+		if (err) return console.error(err);
+		console.log(items);
+		console.log(this.LastEvaluatedKey);
+	});
 ```
 
 ## Full Example
 
 ```js
-db.table('orders')
-  .index('index-customer_id')
-  .select(['order_id', 'amount', 'status'])
-  .where('customer_id').eq('cus_123')
-  .where('created_at').between('2024-01-01', '2024-12-31')
-  .filter('status').eq('completed')
-  .descending()
-  .limit(25)
-  .consistentRead()
-  .query(function (err, data, raw) {
-    console.log('LastEvaluatedKey:', this.LastEvaluatedKey);
-    console.log('ConsumedCapacity:', this.ConsumedCapacity);
-    console.log(err, data);
-  });
+const result = await db
+	.table('orders')
+	.index('index-customer_id')
+	.select(['order_id', 'amount', 'status'])
+	.where('customer_id')
+	.eq('cus_123')
+	.where('created_at')
+	.between('2024-01-01', '2024-12-31')
+	.filter('status')
+	.eq('completed')
+	.descending()
+	.limit(25)
+	.consistentRead()
+	.query();
+
+console.log(result.items);
+console.log(result.lastKey);
+console.log(result.count);
+console.log(result.consumedCapacity);
 ```

@@ -1,11 +1,4 @@
-import {
-	GetItemCommand,
-	DeleteItemCommand,
-	PutItemCommand,
-	UpdateItemCommand,
-	DescribeTableCommand,
-	ListTablesCommand,
-} from '@aws-sdk/client-dynamodb';
+import { GetItemCommand, DeleteItemCommand, PutItemCommand, UpdateItemCommand, DescribeTableCommand, ListTablesCommand } from '@aws-sdk/client-dynamodb';
 import { ScanCommand, QueryCommand } from '@aws-sdk/lib-dynamodb';
 
 import * as util from './util.js';
@@ -424,21 +417,49 @@ export class Request {
 		return this;
 	}
 
-	ne(value) { return this._compare('NE', value); }
-	le(value) { return this._compare('LE', value); }
-	lt(value) { return this._compare('LT', value); }
-	ge(value) { return this._compare('GE', value); }
-	gt(value) { return this._compare('GT', value); }
-	begins_with(value) { return this._compare('BEGINS_WITH', value); }
-	between(value1, value2) { return this._compare('BETWEEN', value1, value2); }
-	contains(value) { return this._compare('CONTAINS', value); }
-	not_contains(value) { return this._compare('NOT_CONTAINS', value); }
-	in(value) { return this._compare('IN', value); }
+	ne(value) {
+		return this._compare('NE', value);
+	}
+	le(value) {
+		return this._compare('LE', value);
+	}
+	lt(value) {
+		return this._compare('LT', value);
+	}
+	ge(value) {
+		return this._compare('GE', value);
+	}
+	gt(value) {
+		return this._compare('GT', value);
+	}
+	begins_with(value) {
+		return this._compare('BEGINS_WITH', value);
+	}
+	between(value1, value2) {
+		return this._compare('BETWEEN', value1, value2);
+	}
+	contains(value) {
+		return this._compare('CONTAINS', value);
+	}
+	not_contains(value) {
+		return this._compare('NOT_CONTAINS', value);
+	}
+	in(value) {
+		return this._compare('IN', value);
+	}
 
-	not_null() { return this._compare('NOT_NULL'); }
-	defined() { return this.not_null(); }
-	null() { return this._compare('NULL'); }
-	undefined() { return this.null(); }
+	not_null() {
+		return this._compare('NOT_NULL');
+	}
+	defined() {
+		return this.not_null();
+	}
+	null() {
+		return this._compare('NULL');
+	}
+	undefined() {
+		return this.null();
+	}
 
 	exists() {
 		if (this.pendingIf !== null) {
@@ -497,14 +518,25 @@ export class Request {
 	/**
 	 * Query items using key conditions.
 	 *
-	 * Returns a Promise when called without a callback.
-	 * The resolved value is the Items array. To access pagination info,
-	 * use `{ items, lastKey } = await query()` is NOT supported —
-	 * use the callback form or chain `.resume(lastKey)`.
+	 * **Promise mode** (no callback): Returns `{ items, lastKey, count, scannedCount, consumedCapacity }`
+	 *
+	 * **Callback mode**: Calls `callback(err, items, raw)` with `this.LastEvaluatedKey` available.
 	 *
 	 * @param {Function} [callback] - `function(err, items, rawResponse)`
-	 *   Inside the callback, `this.LastEvaluatedKey` is available for pagination.
-	 * @returns {Promise<object[]>|this}
+	 * @returns {Promise<{items: object[], lastKey: object|null, count: number, scannedCount: number, consumedCapacity: object}>|this}
+	 *
+	 * @example
+	 * // Promise pagination
+	 * let lastKey = null;
+	 * do {
+	 *   const result = await db.table('orders')
+	 *     .where('customer_id').eq('cus_123')
+	 *     .resume(lastKey)
+	 *     .limit(100)
+	 *     .query();
+	 *   console.log(result.items);
+	 *   lastKey = result.lastKey;
+	 * } while (lastKey);
 	 */
 	query(callback) {
 		this._buildExpressions();
@@ -531,7 +563,13 @@ export class Request {
 		if (typeof callback !== 'function') {
 			return this._send('query', params).then((data) => {
 				this.LastEvaluatedKey = data.LastEvaluatedKey ?? null;
-				return data.Items;
+				return {
+					items: data.Items || [],
+					lastKey: data.LastEvaluatedKey || null,
+					count: data.Count ?? 0,
+					scannedCount: data.ScannedCount ?? 0,
+					consumedCapacity: data.ConsumedCapacity || null,
+				};
 			});
 		}
 
@@ -550,9 +588,24 @@ export class Request {
 	/**
 	 * Scan the entire table or index.
 	 *
+	 * **Promise mode** (no callback): Returns `{ items, lastKey, count, scannedCount, consumedCapacity }`
+	 *
+	 * **Callback mode**: Calls `callback(err, items, raw)` with `this.LastEvaluatedKey` available.
+	 *
 	 * @param {Function} [callback] - `function(err, items, rawResponse)`
-	 *   Inside the callback, `this.LastEvaluatedKey` is available for pagination.
-	 * @returns {Promise<object[]>|this}
+	 * @returns {Promise<{items: object[], lastKey: object|null, count: number, scannedCount: number, consumedCapacity: object}>|this}
+	 *
+	 * @example
+	 * // Promise pagination
+	 * let lastKey = null;
+	 * do {
+	 *   const result = await db.table('users')
+	 *     .resume(lastKey)
+	 *     .limit(100)
+	 *     .scan();
+	 *   console.log(result.items);
+	 *   lastKey = result.lastKey;
+	 * } while (lastKey);
 	 */
 	scan(callback) {
 		if (this.AttributesToGet.length) {
@@ -580,7 +633,13 @@ export class Request {
 		if (typeof callback !== 'function') {
 			return this._send('scan', params).then((data) => {
 				this.LastEvaluatedKey = data.LastEvaluatedKey ?? null;
-				return data.Items;
+				return {
+					items: data.Items || [],
+					lastKey: data.LastEvaluatedKey || null,
+					count: data.Count ?? 0,
+					scannedCount: data.ScannedCount ?? 0,
+					consumedCapacity: data.ConsumedCapacity || null,
+				};
 			});
 		}
 
@@ -682,9 +741,7 @@ export class Request {
 				if (!this.whereKey[schema.AttributeName]) {
 					throw { message: `ValidationException: Missing value for "${schema.AttributeName}" in .where()` };
 				}
-				this.if(schema.AttributeName).eq(
-					util.normalizeItem({ key: this.whereKey[schema.AttributeName] }).key
-				);
+				this.if(schema.AttributeName).eq(util.normalizeItem({ key: this.whereKey[schema.AttributeName] }).key);
 			}
 
 			const attributeUpdates = {};

@@ -2,8 +2,9 @@
 
 A simple and elegant DynamoDB client for Node.js.
 
-[![license](https://img.shields.io/npm/l/aws-dynamodb-query.svg)](https://github.com//aws-dynamodb-query/blob/master/LICENSE)
-[![downloads](https://img.shields.io/npm/dm/aws-dynamodb-query.svg)](https://www.npmjs.com/package/aws-dynamodb-query)
+[![npm version](https://img.shields.io/npm/v/aws-dynamodb-query.svg)](https://www.npmjs.com/package/aws-dynamodb-query)
+[![npm downloads](https://img.shields.io/npm/dm/aws-dynamodb-query.svg)](https://www.npmjs.com/package/aws-dynamodb-query)
+[![license](https://img.shields.io/npm/l/aws-dynamodb-query.svg)](https://github.com/paulandrei53/aws-dynamodb-query/blob/master/LICENSE)
 
 ```bash
 npm install aws-dynamodb-query
@@ -80,17 +81,10 @@ db.table('orders')
 ```js
 let lastKey = null;
 do {
-	const items = await new Promise((resolve, reject) => {
-		db.table('users')
-			.resume(lastKey)
-			.limit(100)
-			.scan(function (err, data) {
-				if (err) return reject(err);
-				lastKey = this.LastEvaluatedKey;
-				resolve(data);
-			});
-	});
-	console.log(`Got ${items.length} items`);
+	const result = await db.table('users').resume(lastKey).limit(100).query();
+
+	console.log(result.items);
+	lastKey = result.lastKey;
 } while (lastKey);
 ```
 
