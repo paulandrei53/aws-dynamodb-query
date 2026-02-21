@@ -108,12 +108,12 @@ do {
 
 ```js
 db.add(5); // Increment number
-db.SS(['a', 'b']); // String Set
-db.NS([1, 2, 3]); // Number Set
-db.N(42); // Number
-db.S('hello'); // String
-db.L([1, 'a']); // List
 db.del(db.SS(['a'])); // Remove from set
+db.S('hello'); // String
+db.SS(['a', 'b']); // String Set
+db.N(42); // Number
+db.NS([1, 2, 3]); // Number Set
+db.L([1, 'a']); // List
 ```
 
 ## Schema Pre-registration
