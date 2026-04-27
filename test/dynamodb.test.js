@@ -144,6 +144,11 @@ describe('DynamoDB type helpers', () => {
 		const result = db.del(db.SS(['old']));
 		assert.deepStrictEqual(result.getRawData(), { Action: 'DELETE', Value: { SS: ['old'] } });
 	});
+
+	it('del() with no args returns bare delete action', () => {
+		const result = db.del();
+		assert.deepStrictEqual(result.getRawData(), { Action: 'DELETE' });
+	});
 });
 
 // ---------------------------------------------------------------------------

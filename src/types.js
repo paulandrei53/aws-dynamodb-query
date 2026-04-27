@@ -128,12 +128,12 @@ export function del(data, datatype) {
 		throw new Error(`DELETE action is not supported for type: ${datatype}`);
 	}
 
-	if (data instanceof Raw) {
-		return new RawAction({ Action: 'DELETE', Value: data.data });
+	if (data === undefined) {
+		return new RawAction({ Action: 'DELETE' });
 	}
 
-	if (arguments.length === 0) {
-		return new RawAction({ Action: 'DELETE' });
+	if (data instanceof Raw) {
+		return new RawAction({ Action: 'DELETE', Value: data.data });
 	}
 
 	throw new Error(`DELETE action is not supported for type: ${typeof data}`);
