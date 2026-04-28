@@ -1,6 +1,7 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { Request } from '../src/request.js';
+import { add, del, SS, NS } from '../src/types.js';
 
 // ---------------------------------------------------------------------------
 // Mock DynamoDB client
@@ -387,6 +388,32 @@ describe('Request.query', () => {
 		await req.table('test').where('id').eq('123').resume(key).query();
 		assert.deepStrictEqual(mock.calls[0].input.ExclusiveStartKey, key);
 	});
+
+	it('converts string Set in items to array (default config)', async () => {
+		const { req } = createRequest({
+			Items: [{ id: '1', tags: new Set(['a', 'b']) }],
+		});
+		const result = await req.table('test').where('id').eq('1').query();
+		assert.deepStrictEqual(result.items[0].tags, ['a', 'b']);
+		assert.ok(!(result.items[0].tags instanceof Set));
+	});
+
+	it('converts number Set in items to array', async () => {
+		const { req } = createRequest({
+			Items: [{ id: '1', scores: new Set([1, 2, 3]) }],
+		});
+		const result = await req.table('test').where('id').eq('1').query();
+		assert.deepStrictEqual(result.items[0].scores, [1, 2, 3]);
+	});
+
+	it('walks nested objects/arrays for Sets', async () => {
+		const { req } = createRequest({
+			Items: [{ id: '1', meta: { tags: new Set(['x']) }, list: [{ inner: new Set(['y']) }] }],
+		});
+		const result = await req.table('test').where('id').eq('1').query();
+		assert.deepStrictEqual(result.items[0].meta.tags, ['x']);
+		assert.deepStrictEqual(result.items[0].list[0].inner, ['y']);
+	});
 });
 
 // ---------------------------------------------------------------------------
@@ -416,6 +443,15 @@ describe('Request.scan', () => {
 		await req.table('test').index('gsi-1').limit(50).scan();
 		assert.strictEqual(mock.calls[0].input.Limit, 50);
 		assert.strictEqual(mock.calls[0].input.IndexName, 'gsi-1');
+	});
+
+	it('converts Sets in scanned items to arrays (matches get() shape)', async () => {
+		const { req } = createRequest({
+			Items: [{ id: '1', tags: new Set(['a', 'b']) }],
+		});
+		const result = await req.table('test').scan();
+		assert.deepStrictEqual(result.items[0].tags, ['a', 'b']);
+		assert.ok(!(result.items[0].tags instanceof Set));
 	});
 });
 
@@ -493,6 +529,25 @@ describe('Request.update', () => {
 		const { req } = createRequest();
 		await assert.rejects(() => req.table('test').update({ name: 'Bob' }), /ValidationException/);
 	});
+
+	it('add(1) value produces an ADD AttributeUpdate (not a Map wrapper)', async () => {
+		const { req, mock } = createRequest();
+		await req
+			.table('test')
+			.where('id')
+			.eq('1')
+			.update({ counter: add(1) });
+		const updates = mock.calls[0].input.AttributeUpdates;
+		assert.deepStrictEqual(updates['counter'], { Action: 'ADD', Value: { N: '1' } });
+		assert.ok(!('data' in updates['counter']));
+	});
+
+	it('del() value produces a DELETE AttributeUpdate', async () => {
+		const { req, mock } = createRequest();
+		await req.table('test').where('id').eq('1').update({ stale: del() });
+		const updates = mock.calls[0].input.AttributeUpdates;
+		assert.deepStrictEqual(updates['stale'], { Action: 'DELETE' });
+	});
 });
 
 // ---------------------------------------------------------------------------
@@ -518,6 +573,48 @@ describe('Request.insert_or_update', () => {
 		const updates = mock.calls[0].input.AttributeUpdates;
 		assert.ok(!updates['id'], 'key attribute should not be in updates');
 		assert.ok(updates['name']);
+	});
+
+	// Regression: clone() used to be JSON.parse(JSON.stringify(...)), which stripped
+	// the Raw prototype and broke the `value.getRawData` check below — values from
+	// add()/del() were silently coerced into a Map attribute. Bulletproof these.
+	it('add(1) value produces an ADD AttributeUpdate (not a Map wrapper)', async () => {
+		const { req, mock } = createRequest();
+		await req.table('test').insert_or_update({ id: '1', counter: add(1) });
+		const updates = mock.calls[0].input.AttributeUpdates;
+		assert.deepStrictEqual(updates['counter'], { Action: 'ADD', Value: { N: '1' } });
+		assert.ok(!('data' in updates['counter']), 'Raw wrapper must not leak into payload');
+	});
+
+	it('add(SS([...])) value produces an ADD with a String Set Value', async () => {
+		const { req, mock } = createRequest();
+		await req.table('test').insert_or_update({ id: '1', tags: add(SS(['x', 'y'])) });
+		const updates = mock.calls[0].input.AttributeUpdates;
+		assert.deepStrictEqual(updates['tags'], { Action: 'ADD', Value: { SS: ['x', 'y'] } });
+	});
+
+	it('del() with no value produces a DELETE AttributeUpdate', async () => {
+		const { req, mock } = createRequest();
+		await req.table('test').insert_or_update({ id: '1', stale: del() });
+		const updates = mock.calls[0].input.AttributeUpdates;
+		assert.deepStrictEqual(updates['stale'], { Action: 'DELETE' });
+		assert.ok(!('data' in updates['stale']));
+	});
+
+	it('del(NS([...])) value produces a DELETE with a Number Set Value', async () => {
+		const { req, mock } = createRequest();
+		await req.table('test').insert_or_update({ id: '1', scores: del(NS([1, 2])) });
+		const updates = mock.calls[0].input.AttributeUpdates;
+		assert.deepStrictEqual(updates['scores'], { Action: 'DELETE', Value: { NS: ['1', '2'] } });
+	});
+
+	it('does not mutate caller input (add() instance preserved)', async () => {
+		const { req } = createRequest();
+		const counter = add(1);
+		const input = { id: '1', counter };
+		await req.table('test').insert_or_update(input);
+		assert.strictEqual(input.counter, counter, 'caller object should be untouched');
+		assert.strictEqual(typeof counter.getRawData, 'function', 'Raw prototype must survive');
 	});
 });
 
@@ -586,7 +683,7 @@ describe('Request.delete', () => {
 	it('delete specific attributes sends UpdateItemCommand with DELETE actions', async () => {
 		const { req, mock } = createRequest();
 		await req.table('test').where('id').eq('1').delete(['field1', 'field2']);
-		// delete attrs still uses deleteItem command path but with AttributeUpdates
+		assert.strictEqual(mock.calls[0].name, 'UpdateItemCommand');
 		const input = mock.calls[0].input;
 		assert.ok(input.AttributeUpdates);
 		assert.deepStrictEqual(input.AttributeUpdates['field1'], { Action: 'DELETE' });

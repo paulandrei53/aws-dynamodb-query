@@ -136,6 +136,42 @@ export function parse(attr) {
 }
 
 /**
+ * Walk a value already unmarshalled by `lib-dynamodb` and rewrite JS `Set`
+ * instances (which `lib-dynamodb` always produces for SS/NS/BS) according to
+ * `config.stringset_parse_as_set`, `numberset_parse_as_set`, `binaryset_parse_as_set`.
+ *
+ * Without this, `query()`/`scan()` would return Sets while `get()` returns arrays
+ * — and the `DynamoDB.config({...})` toggles would be silently ignored on those paths.
+ *
+ * @param {*} value
+ * @returns {*}
+ */
+export function applySetConfig(value) {
+	if (value instanceof Set) {
+		const arr = [...value];
+		if (arr.length === 0) return arr;
+		const first = arr[0];
+		if (typeof first === 'string') return config.stringset_parse_as_set ? value : arr;
+		if (typeof first === 'number') return config.numberset_parse_as_set ? value : arr;
+		return config.binaryset_parse_as_set ? value : arr;
+	}
+
+	if (Array.isArray(value)) {
+		return value.map(applySetConfig);
+	}
+
+	if (value !== null && typeof value === 'object' && !(value instanceof Uint8Array)) {
+		const result = {};
+		for (const key of Object.keys(value)) {
+			result[key] = applySetConfig(value[key]);
+		}
+		return result;
+	}
+
+	return value;
+}
+
+/**
  * Convert a DynamoDB marshalled item back to a JS object.
  * @param {object} item
  * @returns {object}

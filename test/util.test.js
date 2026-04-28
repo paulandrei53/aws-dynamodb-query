@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { Raw, config, clone, anormalizeType, stringify, parse, anormalizeItem, normalizeItem, buildExpected, expressionNameSplit } from '../src/util.js';
+import { Raw, config, clone, anormalizeType, stringify, parse, anormalizeItem, normalizeItem, buildExpected, expressionNameSplit, applySetConfig } from '../src/util.js';
 
 // ---------------------------------------------------------------------------
 // Raw
@@ -169,6 +169,59 @@ describe('parse', () => {
 	it('returns null/undefined as-is', () => {
 		assert.strictEqual(parse(null), null);
 		assert.strictEqual(parse(undefined), undefined);
+	});
+});
+
+// ---------------------------------------------------------------------------
+// applySetConfig — converts JS Sets (from lib-dynamodb) to arrays per config
+// ---------------------------------------------------------------------------
+describe('applySetConfig', () => {
+	it('string Set → array by default', () => {
+		assert.deepStrictEqual(applySetConfig(new Set(['a', 'b'])), ['a', 'b']);
+	});
+
+	it('number Set → array by default', () => {
+		assert.deepStrictEqual(applySetConfig(new Set([1, 2])), [1, 2]);
+	});
+
+	it('keeps string Set when stringset_parse_as_set=true', () => {
+		const original = config.stringset_parse_as_set;
+		config.stringset_parse_as_set = true;
+		const result = applySetConfig(new Set(['a', 'b']));
+		assert.ok(result instanceof Set);
+		config.stringset_parse_as_set = original;
+	});
+
+	it('keeps number Set when numberset_parse_as_set=true', () => {
+		const original = config.numberset_parse_as_set;
+		config.numberset_parse_as_set = true;
+		const result = applySetConfig(new Set([1, 2]));
+		assert.ok(result instanceof Set);
+		config.numberset_parse_as_set = original;
+	});
+
+	it('walks nested objects and arrays', () => {
+		const input = {
+			tags: new Set(['x']),
+			meta: { ids: new Set([1, 2]) },
+			list: [{ inner: new Set(['y']) }],
+		};
+		const result = applySetConfig(input);
+		assert.deepStrictEqual(result.tags, ['x']);
+		assert.deepStrictEqual(result.meta.ids, [1, 2]);
+		assert.deepStrictEqual(result.list[0].inner, ['y']);
+	});
+
+	it('passes scalars through untouched', () => {
+		assert.strictEqual(applySetConfig('hi'), 'hi');
+		assert.strictEqual(applySetConfig(42), 42);
+		assert.strictEqual(applySetConfig(null), null);
+		assert.strictEqual(applySetConfig(true), true);
+	});
+
+	it('preserves Uint8Array (binary scalar) as-is', () => {
+		const buf = new Uint8Array([1, 2, 3]);
+		assert.strictEqual(applySetConfig(buf), buf);
 	});
 });
 

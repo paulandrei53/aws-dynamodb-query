@@ -63,25 +63,10 @@ export function L(data) {
 }
 
 /**
- * @typedef {object} RawAction
- * @property {string} Action
- * @property {object} [Value]
- */
-
-class RawAction {
-	constructor(data) {
-		this.data = data;
-	}
-	getRawData() {
-		return this.data;
-	}
-}
-
-/**
  * Create an ADD update action.
  * @param {*} data - Value to add. Defaults to incrementing by 1.
  * @param {string} [datatype] - Force a specific DynamoDB type.
- * @returns {RawAction}
+ * @returns {Raw}
  */
 export function add(data, datatype) {
 	if (typeof datatype === 'string') {
@@ -100,7 +85,7 @@ export function add(data, datatype) {
 	}
 
 	if (data instanceof Raw) {
-		return new RawAction({ Action: 'ADD', Value: data.data });
+		return new Raw({ Action: 'ADD', Value: data.data });
 	}
 
 	if (typeof data === 'number' || typeof data === 'undefined') {
@@ -118,7 +103,7 @@ export function add(data, datatype) {
  * Create a DELETE update action.
  * @param {*} [data] - Value to delete from a set. Omit to remove the attribute.
  * @param {string} [datatype] - Force a specific DynamoDB type.
- * @returns {RawAction}
+ * @returns {Raw}
  */
 export function del(data, datatype) {
 	if (typeof datatype === 'string') {
@@ -129,11 +114,11 @@ export function del(data, datatype) {
 	}
 
 	if (data === undefined) {
-		return new RawAction({ Action: 'DELETE' });
+		return new Raw({ Action: 'DELETE' });
 	}
 
 	if (data instanceof Raw) {
-		return new RawAction({ Action: 'DELETE', Value: data.data });
+		return new Raw({ Action: 'DELETE', Value: data.data });
 	}
 
 	throw new Error(`DELETE action is not supported for type: ${typeof data}`);
