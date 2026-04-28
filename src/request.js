@@ -549,7 +549,7 @@ export class Request {
 
 		const data = await this._send('query', params);
 		return {
-			items: data.Items || [],
+			items: (data.Items || []).map(util.applySetConfig),
 			lastKey: data.LastEvaluatedKey || null,
 			count: data.Count ?? 0,
 			scannedCount: data.ScannedCount ?? 0,
@@ -597,7 +597,7 @@ export class Request {
 
 		const data = await this._send('scan', params);
 		return {
-			items: data.Items || [],
+			items: (data.Items || []).map(util.applySetConfig),
 			lastKey: data.LastEvaluatedKey || null,
 			count: data.Count ?? 0,
 			scannedCount: data.ScannedCount ?? 0,
@@ -711,7 +711,7 @@ export class Request {
 	 * @returns {Promise<{attributes: object, consumedCapacity: object|null}>}
 	 */
 	async insert_or_update(itemParams) {
-		const attrs = util.clone(itemParams);
+		const attrs = { ...itemParams };
 		const tableInfo = await this._describeTable(this.tableName);
 
 		for (const schema of tableInfo.Table.KeySchema) {
@@ -773,7 +773,7 @@ export class Request {
 	 * @returns {Promise<{attributes: object, consumedCapacity: object|null}>}
 	 */
 	async delete(attrs) {
-		// delete(['attr1', 'attr2']) — delete specific attributes
+		// delete(['attr1', 'attr2']) — delete specific attributes (UpdateItem with DELETE actions)
 		if (Array.isArray(attrs)) {
 			const attributeUpdates = {};
 			for (const attr of attrs) {
@@ -788,7 +788,7 @@ export class Request {
 				ReturnValues: this.ReturnValues,
 			};
 
-			const data = await this._send('delete', params);
+			const data = await this._send('update', params);
 			return {
 				attributes: util.normalizeItem(data.Attributes || {}),
 				consumedCapacity: data.ConsumedCapacity || null,
