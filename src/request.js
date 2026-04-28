@@ -210,12 +210,15 @@ export class Request {
 			return this;
 		}
 
-		if (Array.isArray(attributes)) {
-			this.AttributesToGet = attributes;
-		} else {
-			this.AttributesToGet = Array.from(arguments);
+		const args = Array.isArray(attributes) ? attributes : Array.from(arguments);
+		const filtered = args.filter((a) => typeof a === 'string' && a.length > 0);
+
+		if (filtered.length === 0) {
+			this.Select = 'ALL_ATTRIBUTES';
+			return this;
 		}
 
+		this.AttributesToGet = filtered;
 		return this;
 	}
 

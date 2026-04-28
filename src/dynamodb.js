@@ -226,22 +226,25 @@ export class DynamoDB {
 // Select constants
 // ---------------------------------------------------------------------------
 
-DynamoDB.ALL = 1;
-DynamoDB.ALL_ATTRIBUTES = 1;
-DynamoDB.PROJECTED = 2;
-DynamoDB.ALL_PROJECTED_ATTRIBUTES = 2;
-DynamoDB.COUNT = 3;
+const CONSTANTS = {
+	ALL: 1,
+	ALL_ATTRIBUTES: 1,
+	PROJECTED: 2,
+	ALL_PROJECTED_ATTRIBUTES: 2,
+	COUNT: 3,
+	NONE: 'NONE',
+	ALL_OLD: 'ALL_OLD',
+	UPDATED_OLD: 'UPDATED_OLD',
+	ALL_NEW: 'ALL_NEW',
+	UPDATED_NEW: 'UPDATED_NEW',
+	TOTAL: 'TOTAL',
+	INDEXES: 'INDEXES',
+};
 
-// ReturnValues constants
-DynamoDB.NONE = 'NONE';
-DynamoDB.ALL_OLD = 'ALL_OLD';
-DynamoDB.UPDATED_OLD = 'UPDATED_OLD';
-DynamoDB.ALL_NEW = 'ALL_NEW';
-DynamoDB.UPDATED_NEW = 'UPDATED_NEW';
-
-// ReturnConsumedCapacity constants
-DynamoDB.TOTAL = 'TOTAL';
-DynamoDB.INDEXES = 'INDEXES';
+for (const [key, value] of Object.entries(CONSTANTS)) {
+	DynamoDB[key] = value;
+	DynamoDB.prototype[key] = value;
+}
 
 // ---------------------------------------------------------------------------
 // Static config
