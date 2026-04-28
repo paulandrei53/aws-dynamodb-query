@@ -1,6 +1,6 @@
 {
 	"name": "aws-dynamodb-query",
-	"version": "1.0.2",
+	"version": "1.0.3",
 	"description": "A simple and elegant DynamoDB client for Node.js",
 	"license": "MIT",
 	"main": "src/index.js",
